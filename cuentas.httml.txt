@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Cuentas</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel (Para compilar JSX en el navegador) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Firebase (Compat API para uso directo sin Node.js) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+</head>
+<body class="bg-[#151722] text-gray-200">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useMemo, useEffect } = React;
+
+        // --- ICONOS SVG INCORPORADOS (Reemplaza a Lucide) ---
+        const Icon = ({ name, size = 24, className = "" }) => {
+            const icons = {
+                Calculator: <g><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></g>,
+                TrendingUp: <g><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></g>,
+                TrendingDown: <g><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></g>,
+                DollarSign: <g><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></g>,
+                Plus: <g><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></g>,
+                Trash2: <g><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></g>,
+                Wallet: <g><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></g>,
+                Utensils: <g><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></g>,
+                ShoppingBag: <g><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><line x1="3" x2="21" y1="6" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></g>,
+                Save: <g><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></g>,
+                AlertCircle: <g><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></g>,
+                CloudUpload: <g><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></g>,
+                Cloud: <g><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></g>,
+                CloudOff: <g><path d="m2 2 20 20"/><path d="M5.782 5.782A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.307-.193"/><path d="M21.532 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7.008 7.008 0 0 0 10 5.27"/></g>,
+                MapPin: <g><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></g>,
+                Lock: <g><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></g>
+            };
+            return (
+                <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                    {icons[name]}
+                </svg>
+            );
+        };
+
+        // --- DATOS INICIALES ---
+        const EMPTY_SALES = [
+            { id: 1, name: 'Hamburguesa', sent: 0, left: 0, price: 10.00 },
+            { id: 2, name: 'Salchipapa', sent: 0, left: 0, price: 15.00 },
+            { id: 3, name: 'Lomito', sent: 0, left: 0, price: 15.00 },
+            { id: 4, name: 'Serrano', sent: 0, left: 0, price: 11.00 },
+            { id: 5, name: 'Huevo', sent: 0, left: 0, price: 3.00 },
+            { id: 6, name: 'Queso', sent: 0, left: 0, price: 3.00 },
+            { id: 7, name: 'Bandejas', sent: 0, left: 0, price: 5.00 },
+            { id: 8, name: 'Vasos', sent: 0, left: 0, price: 4.00 },
+            { id: 9, name: 'B. Salchiburguer', sent: 0, left: 0, price: 10.00 },
+        ];
+
+        const INITIAL_AUTO_EXPENSES = [
+            { id: 'pan', name: 'Pan', formula: 'pan', unitPrice: 0.70 },
+            { id: 'molida', name: 'Carne Molida (kg)', formula: 'molida', unitPrice: 58 },
+            { id: 'pan_molido', name: 'Pan Molido (kg)', formula: 'pan_molido', unitPrice: 12 },
+            { id: 'aji', name: 'Ají No Moto', formula: 'aji', unitPrice: 5 },
+            { id: 'pimienta', name: 'Pimienta Comino', formula: 'pimienta', unitPrice: 1 },
+            { id: 'verdes', name: 'Verdes', formula: 'verdes', unitPrice: 1 },
+            { id: 'ajo', name: 'Ajo', formula: 'ajo', unitPrice: 1 },
+            { id: 'cadera', name: 'Cadera p/Lomito (kg)', formula: 'cadera', unitPrice: 80 },
+            { id: 'salchicha', name: 'Salchicha (kg)', formula: 'salchicha', unitPrice: 36 },
+            { id: 'papa', name: 'Papa (Arrobas)', formula: 'papa', unitPrice: 68 },
+            { id: 'bandejita', name: 'Bandejitas', formula: 'bandejita', unitPrice: 0.15 },
+            { id: 'huevo_costo', name: 'Huevo (Insumo)', formula: 'huevo', unitPrice: 1.00 },
+            { id: 'serrano_costo', name: 'Serrano (Insumo)', formula: 'serrano', unitPrice: 3.60 },
+            { id: 'ganchito', name: 'Ganchito (por Pan)', formula: 'ganchito', unitPrice: 0.04 },
+        ];
+
+        const INITIAL_MANUAL_EXPENSES = [
+            { id: 10, name: 'Mayonesa', amount: 25.00 },
+            { id: 11, name: 'Mostaza', amount: 15.00 },
+            { id: 12, name: 'Ketchup', amount: 20.00 },
+            { id: 17, name: 'Bolsas', amount: 5.00 },
+            { id: 18, name: 'Servilletas', amount: 8.00 },
+            { id: 19, name: 'Palitos', amount: 4.00 },
+            { id: 20, name: 'Tomate', amount: 10.00 },
+            { id: 21, name: 'Lechuga', amount: 4.00 },
+            { id: 22, name: 'Locoto', amount: 2.00 },
+            { id: 23, name: 'Cebolla', amount: 15.00 },
+            { id: 24, name: 'Tomate Ll.', amount: 10.00 },
+            { id: 25, name: 'Morrón', amount: 5.00 },
+            { id: 26, name: 'Aceite (Litros)', qty: 0, unitPrice: 15.00, amount: 0, isVariable: true },
+            { id: 27, name: 'Postre', amount: 10.00 },
+            { id: 28, name: 'Pasajes', amount: 40.00 },
+            { id: 29, name: 'Alquiler', amount: 338.00 },
+            { id: 31, name: 'Limpieza', amount: 5.00 },
+            { id: 32, name: 'Refresco', amount: 45.00 },
+            { id: 33, name: 'Gas', amount: 15.00 },
+        ];
+
+        const EMPTY_CASH_PARAMS = { qr: 0, consumo: 0, efectivoReal: 0, pagosExtra: 0 };
+
+        const getEmptyDayData = () => ({
+            sales: JSON.parse(JSON.stringify(EMPTY_SALES)),
+            autoExpenses: JSON.parse(JSON.stringify(INITIAL_AUTO_EXPENSES)),
+            manualExpenses: JSON.parse(JSON.stringify(INITIAL_MANUAL_EXPENSES)),
+            cashParams: { ...EMPTY_CASH_PARAMS }
+        });
+
+        const getLocalDateString = () => {
+            const d = new Date();
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        // ==========================================
+        // 🔴🔴 REEMPLAZA AQUI TUS DATOS DE FIREBASE 🔴🔴
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyBn9u9qDxvrfS1rohtWXMj38N2ELZxv8Sc",
+            authDomain: "cuentas-ce430.firebaseapp.com",
+            projectId: "cuentas-ce430",
+            storageBucket: "cuentas-ce430.firebasestorage.app",
+            messagingSenderId: "747896886780",
+            appId: "1:747896886780:web:1fdef808153f55b9414e79"
+        };
+        // ==========================================
+
+        let db = null;
+        let auth = null;
+
+        try {
+            if (!firebase.apps.length) {
+                firebase.initializeApp(firebaseConfig);
+            }
+            db = firebase.firestore();
+            auth = firebase.auth();
+        } catch (e) {
+            console.error("No se pudo iniciar Firebase. Revisa las llaves.", e);
+        }
+
+        function App() {
+            const [isAuthenticated, setIsAuthenticated] = useState(() => sessionStorage.getItem('auth') === 'true');
+            const [password, setPassword] = useState('');
+            const [loginError, setLoginError] = useState(false);
+
+            const handleLogin = (e) => {
+                e.preventDefault();
+                if (password === '1234') {
+                    setIsAuthenticated(true);
+                    sessionStorage.setItem('auth', 'true');
+                } else {
+                    setLoginError(true);
+                    setTimeout(() => setLoginError(false), 2000);
+                }
+            };
+
+            const [selectedDate, setSelectedDate] = useState(getLocalDateString());
+            const [selectedLocation, setSelectedLocation] = useState('MEXICO');
+            
+            const storeKey = `${selectedDate}_${selectedLocation}`;
+
+            const [dailyStore, setDailyStore] = useState({
+                [`${getLocalDateString()}_MEXICO`]: getEmptyDayData()
+            });
+
+            const [user, setUser] = useState(null);
+            const [isConnected, setIsConnected] = useState(false);
+            const [isSaving, setIsSaving] = useState(false);
+            const [isLoading, setIsLoading] = useState(false);
+
+            // 1. Conectar Usuario Firebase
+            useEffect(() => {
+                if (!auth) return;
+                auth.signInAnonymously().catch(console.error);
+                const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+                    setUser(currentUser);
+                    setIsConnected(!!currentUser);
+                });
+                return () => unsubscribe();
+            }, []);
+
+            // 2. Cargar datos desde Firebase
+            useEffect(() => {
+                const loadDataFromCloud = async () => {
+                    if (!user || !db) return;
+                    setIsLoading(true);
+                    try {
+                        const docRef = db.collection('ventas_sucursales')
+                                       .doc(user.uid)
+                                       .collection('registros_diarios')
+                                       .doc(storeKey);
+                        const docSnap = await docRef.get();
+                        if (docSnap.exists) {
+                            setDailyStore(prev => ({ ...prev, [storeKey]: docSnap.data() }));
+                        }
+                    } catch (error) {
+                        console.error("Error descargando datos:", error);
+                    } finally {
+                        setIsLoading(false);
+                    }
+                };
+                loadDataFromCloud();
+            }, [storeKey, user]);
+
+            const currentData = dailyStore[storeKey] || getEmptyDayData();
+            const { sales, autoExpenses, manualExpenses, cashParams } = currentData;
+
+            const updateCurrentDay = (key, value) => {
+                setDailyStore(prev => ({
+                    ...prev,
+                    [storeKey]: {
+                        ...(prev[storeKey] || getEmptyDayData()),
+                        [key]: value
+                    }
+                }));
+            };
+
+            const handleSaveToCloud = async () => {
+                if (!user || !db) {
+                    alert("No hay conexión con la base de datos.");
+                    return;
+                }
+                setIsSaving(true);
+                try {
+                    const docRef = db.collection('ventas_sucursales')
+                                   .doc(user.uid)
+                                   .collection('registros_diarios')
+                                   .doc(storeKey);
+                    await docRef.set(currentData);
+                } catch (error) {
+                    console.error("Error guardando en la nube:", error);
+                    alert("Error al guardar. Intenta de nuevo.");
+                } finally {
+                    setIsSaving(false);
+                }
+            };
+
+            const totalSales = useMemo(() => {
+                return sales.reduce((acc, item) => acc + (Math.max(0, item.sent - item.left) * item.price), 0);
+            }, [sales]);
+
+            const computedAutoExpenses = useMemo(() => {
+                const getSold = (id) => {
+                    const item = sales.find(s => s.id === id);
+                    return item ? Math.max(0, item.sent - item.left) : 0;
+                };
+
+                const h_sold = getSold(1); 
+                const s_sold = getSold(2); 
+                const l_sold = getSold(3); 
+                const se_sold = getSold(4); 
+                const hue_sold = getSold(5); 
+                const b_sold = getSold(7); 
+
+                return autoExpenses.map(exp => {
+                    let qty = 0;
+                    switch (exp.formula) {
+                        case 'pan': qty = h_sold + l_sold; break;
+                        case 'molida': qty = h_sold * 0.05; break;
+                        case 'pan_molido': qty = h_sold * 0.05; break;
+                        case 'aji': qty = h_sold * 0.05; break;
+                        case 'pimienta': qty = h_sold * 0.05; break;
+                        case 'verdes': qty = h_sold * 0.10; break;
+                        case 'ajo': qty = h_sold * 0.09; break;
+                        case 'cadera': qty = l_sold * 0.084; break;
+                        case 'salchicha': qty = s_sold * 0.084; break;
+                        case 'papa': qty = s_sold * 0.05; break;
+                        case 'bandejita': qty = s_sold + b_sold; break;
+                        case 'huevo': qty = hue_sold; break;
+                        case 'serrano': qty = se_sold; break;
+                        case 'ganchito': qty = h_sold + l_sold; break;
+                        default: qty = 0;
+                    }
+                    return { ...exp, quantity: qty, total: qty * exp.unitPrice };
+                });
+            }, [sales, autoExpenses]);
+
+            const totalExpenses = useMemo(() => {
+                const autoTotal = computedAutoExpenses.reduce((acc, item) => acc + item.total, 0);
+                const manualTotal = manualExpenses.reduce((acc, item) => acc + (parseFloat(item.amount) || 0), 0);
+                return autoTotal + manualTotal;
+            }, [computedAutoExpenses, manualExpenses]);
+
+            const expectedCashTotal = totalSales - cashParams.consumo; 
+            const expectedPhysicalCash = expectedCashTotal - cashParams.qr; 
+            const cashDifference = cashParams.efectivoReal - expectedPhysicalCash; 
+            const grossProfit = expectedCashTotal - totalExpenses; 
+            const netProfit = grossProfit - cashParams.pagosExtra + cashDifference;
+
+            const updateSale = (id, field, value) => {
+                const newSales = sales.map(s => s.id === id ? { ...s, [field]: field === 'name' ? value : Number(value) } : s);
+                updateCurrentDay('sales', newSales);
+            };
+            const addSaleItem = () => {
+                updateCurrentDay('sales', [...sales, { id: Date.now(), name: '', sent: 0, left: 0, price: 0 }]);
+            };
+            const removeSaleItem = (id) => { 
+                updateCurrentDay('sales', sales.filter(s => s.id !== id)); 
+            };
+
+            const updateAutoExpensePrice = (id, price) => {
+                const newAuto = autoExpenses.map(e => e.id === id ? { ...e, unitPrice: Number(price) } : e);
+                updateCurrentDay('autoExpenses', newAuto);
+            };
+            
+            const updateManualExpense = (id, field, value) => {
+                const newManual = manualExpenses.map(e => {
+                    if (e.id === id) {
+                        const updated = { ...e, [field]: field === 'name' ? value : Number(value) };
+                        if (updated.isVariable && field === 'qty') {
+                            updated.amount = updated.qty * updated.unitPrice;
+                        }
+                        return updated;
+                    }
+                    return e;
+                });
+                updateCurrentDay('manualExpenses', newManual);
+            };
+            const addManualExpense = () => {
+                updateCurrentDay('manualExpenses', [...manualExpenses, { id: Date.now(), name: '', amount: 0 }]);
+            };
+            const removeManualExpense = (id) => { 
+                updateCurrentDay('manualExpenses', manualExpenses.filter(e => e.id !== id)); 
+            };
+
+            const updateCashParam = (field, value) => {
+                updateCurrentDay('cashParams', { ...cashParams, [field]: Number(value) });
+            };
+
+            const formatMoney = (amount) => {
+                return new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' }).format(amount).replace('BOB', 'Bs.');
+            };
+
+            // Pantalla de Login
+            if (!isAuthenticated) {
+                return (
+                    <div className="min-h-screen bg-[#151722] flex items-center justify-center p-4">
+                        <div className="bg-[#202336] p-8 rounded-2xl shadow-lg border border-[#2D314A] max-w-md w-full">
+                            <div className="flex justify-center mb-6">
+                                <div className="w-16 h-16 rounded-full bg-pink-500/10 flex items-center justify-center text-pink-500 shadow-inner">
+                                    <Icon name="Lock" size={32} />
+                                </div>
+                            </div>
+                            <h2 className="text-2xl font-bold text-center text-white mb-2">Acceso Restringido</h2>
+                            <p className="text-gray-400 text-center mb-6">Ingrese su contraseña para continuar</p>
+                            <form onSubmit={handleLogin} className="space-y-4">
+                                <div>
+                                    <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+                                        className={`w-full bg-[#151722] border ${loginError ? 'border-red-500' : 'border-[#2D314A] focus:border-cyan-500'} rounded-lg px-4 py-3 outline-none text-white text-center text-xl tracking-[0.25em] transition-colors`}
+                                        placeholder="••••" autoFocus />
+                                    {loginError && <p className="text-red-400 text-sm mt-2 text-center animate-pulse">Contraseña incorrecta</p>}
+                                </div>
+                                <button type="submit" className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold py-3 px-4 rounded-lg transition-all shadow-lg shadow-cyan-500/20">
+                                    Ingresar al Dashboard
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen bg-[#151722] text-gray-200 font-sans p-4 md:p-8">
+                    <div className="max-w-7xl mx-auto space-y-6">
+                        
+                        {/* Encabezado Principal */}
+                        <header className="flex flex-col bg-[#202336] p-6 rounded-2xl shadow-lg border border-[#2D314A] space-y-5">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div>
+                                    <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                                        <Icon name="Utensils" className="text-pink-500" />
+                                        Dashboard Control Diario
+                                    </h1>
+                                    <p className="text-gray-400">Gestión simplificada de ventas, caja y gastos</p>
+                                </div>
+                                <div className="flex bg-[#151722] p-1.5 rounded-xl border border-[#2D314A] shadow-inner">
+                                    <button onClick={() => setSelectedLocation('MEXICO')}
+                                        className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold transition-all duration-300 ${selectedLocation === 'MEXICO' ? 'bg-gradient-to-r from-pink-500 to-fuchsia-600 text-white shadow-lg shadow-pink-500/20' : 'text-gray-400 hover:text-white'}`}>
+                                        <Icon name="MapPin" size={18} /> MEXICO
+                                    </button>
+                                    <button onClick={() => setSelectedLocation('6 DE AGOSTO')}
+                                        className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold transition-all duration-300 ${selectedLocation === '6 DE AGOSTO' ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/20' : 'text-gray-400 hover:text-white'}`}>
+                                        <Icon name="MapPin" size={18} /> 6 DE AGOSTO
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-[#2D314A]">
+                                <button className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors border ${isConnected ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30' : 'bg-red-500/10 text-red-400 border-red-500/30'}`}>
+                                    <Icon name={isConnected ? "Cloud" : "CloudOff"} size={18} />
+                                    {isConnected ? 'Conectado a Nube' : 'Desconectado'}
+                                </button>
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-[#151722] text-gray-300 border border-[#2D314A] px-4 py-2 rounded-lg font-medium flex items-center gap-2">
+                                        <Icon name="Save" size={18} className="text-gray-400" />
+                                        <span className="mr-1">Fecha:</span>
+                                        <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)}
+                                            className="bg-transparent border-none outline-none font-bold text-white cursor-pointer" style={{ colorScheme: 'dark' }} />
+                                        {isLoading && <span className="ml-2 w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>}
+                                    </div>
+                                    <button onClick={handleSaveToCloud} disabled={isSaving}
+                                        className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-4 py-2 rounded-lg font-medium transition-all shadow-lg">
+                                        <Icon name="CloudUpload" size={18} className={isSaving ? "animate-bounce" : ""} />
+                                        {isSaving ? 'Guardando...' : 'Guardar Datos'}
+                                    </button>
+                                </div>
+                            </div>
+                        </header>
+
+                        {/* Tarjetas de Resumen */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="bg-gradient-to-br from-fuchsia-500 to-purple-600 p-5 rounded-2xl shadow-lg flex items-center gap-4 text-white">
+                                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center shrink-0"><Icon name="DollarSign" /></div>
+                                <div><p className="text-xs font-bold text-white/80 uppercase tracking-wider mb-0.5">Venta Total</p><p className="text-2xl font-black">{formatMoney(totalSales)}</p></div>
+                            </div>
+                            <div className="bg-gradient-to-br from-cyan-400 to-blue-500 p-5 rounded-2xl shadow-lg flex items-center gap-4 text-white">
+                                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center shrink-0"><Icon name="TrendingDown" /></div>
+                                <div><p className="text-xs font-bold text-white/80 uppercase tracking-wider mb-0.5">Total Gastado</p><p className="text-2xl font-black">{formatMoney(totalExpenses)}</p></div>
+                            </div>
+                            <div className={`bg-[#202336] p-5 rounded-2xl shadow-lg border flex items-center gap-4 ${cashDifference < 0 ? 'border-red-500/30' : 'border-[#2D314A]'}`}>
+                                <div className={`w-12 h-12 rounded-full bg-[#151722] flex items-center justify-center shrink-0 ${cashDifference < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                                    <Icon name="AlertCircle" />
+                                </div>
+                                <div><p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-0.5">Falta / Sobra</p>
+                                    <p className={`text-2xl font-black ${cashDifference < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                                        {cashDifference > 0 ? '+' : ''}{formatMoney(cashDifference)}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="bg-[#202336] p-5 rounded-2xl shadow-lg border border-[#2D314A] flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-full bg-[#151722] text-cyan-400 flex items-center justify-center shrink-0"><Icon name="TrendingUp" /></div>
+                                <div><p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-0.5">Ganancia Neta</p><p className="text-2xl font-black text-cyan-400">{formatMoney(netProfit)}</p></div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                            
+                            {/* Ventas */}
+                            <div className="lg:col-span-7 space-y-6">
+                                <div className="bg-[#202336] rounded-2xl shadow-lg border border-[#2D314A] overflow-hidden">
+                                    <div className="p-5 border-b border-[#2D314A] flex justify-between items-center bg-[#151722]/50">
+                                        <h2 className="text-lg font-bold flex items-center gap-2 text-white">
+                                            <Icon name="ShoppingBag" className="text-cyan-400" size={20} /> Inventario y Ventas
+                                        </h2>
+                                        <button onClick={addSaleItem} className="flex items-center gap-1 text-sm bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 px-3 py-1.5 rounded-lg hover:bg-cyan-500/20 font-medium">
+                                            <Icon name="Plus" size={16} /> Añadir Producto
+                                        </button>
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr className="bg-[#151722] text-gray-400 text-xs uppercase tracking-wider">
+                                                    <th className="p-4 font-medium border-b border-[#2D314A]">Producto</th>
+                                                    <th className="p-4 font-medium text-center w-20 border-b border-[#2D314A]">Enviados</th>
+                                                    <th className="p-4 font-medium text-center w-20 border-b border-[#2D314A]">Sobras</th>
+                                                    <th className="p-4 font-medium text-center w-20 border-b border-[#2D314A]">Vendidos</th>
+                                                    <th className="p-4 font-medium text-right w-24 border-b border-[#2D314A]">Precio Unit.</th>
+                                                    <th className="p-4 font-medium text-right w-28 border-b border-[#2D314A]">Total</th>
+                                                    <th className="p-4 w-12 border-b border-[#2D314A]"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-[#2D314A]">
+                                                {sales.map((item) => {
+                                                    const sold = Math.max(0, item.sent - item.left);
+                                                    return (
+                                                        <tr key={item.id} className="hover:bg-[#151722]/40 transition-colors">
+                                                            <td className="p-3"><input type="text" value={item.name} onChange={(e) => updateSale(item.id, 'name', e.target.value)} className="w-full bg-transparent outline-none font-medium text-gray-200" /></td>
+                                                            <td className="p-3"><input type="number" value={item.sent === 0 ? '' : item.sent} onChange={(e) => updateSale(item.id, 'sent', e.target.value)} className="w-full text-center bg-[#151722] border border-[#2D314A] rounded px-2 py-1.5 outline-none text-white" /></td>
+                                                            <td className="p-3"><input type="number" value={item.left === 0 && item.sent === 0 ? '' : item.left} onChange={(e) => updateSale(item.id, 'left', e.target.value)} className="w-full text-center bg-pink-500/10 border border-pink-500/30 text-pink-400 rounded px-2 py-1.5 outline-none" /></td>
+                                                            <td className="p-3 text-center font-bold text-gray-300">{sold}</td>
+                                                            <td className="p-3 text-right"><input type="number" value={item.price === 0 ? '' : item.price} onChange={(e) => updateSale(item.id, 'price', e.target.value)} className="w-full text-right bg-transparent outline-none text-gray-300" /></td>
+                                                            <td className="p-3 text-right font-bold text-cyan-400">{formatMoney(sold * item.price)}</td>
+                                                            <td className="p-3 text-center"><button onClick={() => removeSaleItem(item.id)} className="text-gray-500 hover:text-red-400"><Icon name="Trash2" size={16} /></button></td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Gastos, Caja y Resumen */}
+                            <div className="lg:col-span-5 space-y-6">
+                                <div className="bg-[#202336] rounded-2xl shadow-lg border border-[#2D314A] p-5">
+                                    <h2 className="text-lg font-bold flex items-center gap-2 mb-4 text-white"><Icon name="Wallet" className="text-emerald-400" size={20} /> Arqueo de Caja</h2>
+                                    <div className="space-y-4">
+                                        <div className="flex justify-between items-center bg-[#151722] p-3 rounded-lg border border-[#2D314A]"><span className="text-gray-400 text-sm">Venta Total Bruta</span><span className="font-bold text-white">{formatMoney(totalSales)}</span></div>
+                                        <div className="flex justify-between items-center"><span className="text-gray-400 text-sm">- Consumo Personal</span><input type="number" value={cashParams.consumo === 0 ? '' : cashParams.consumo} onChange={(e) => updateCashParam('consumo', e.target.value)} className="w-28 text-right bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg px-3 py-1.5 outline-none font-medium" /></div>
+                                        <div className="flex justify-between items-center pt-2 border-t border-[#2D314A]"><span className="font-semibold text-gray-200">Total a Rendir</span><span className="font-bold text-lg text-white">{formatMoney(expectedCashTotal)}</span></div>
+                                        <div className="flex justify-between items-center"><span className="text-gray-400 text-sm">- Pagos por QR</span><input type="number" value={cashParams.qr === 0 ? '' : cashParams.qr} onChange={(e) => updateCashParam('qr', e.target.value)} className="w-28 text-right bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-lg px-3 py-1.5 outline-none font-medium" /></div>
+                                        <div className="flex justify-between items-center bg-emerald-500/10 p-3 rounded-lg border border-emerald-500/20"><span className="text-emerald-400 font-medium">Efectivo Físico Esperado</span><span className="font-bold text-emerald-400 text-lg">{formatMoney(expectedPhysicalCash)}</span></div>
+                                        <div className="flex justify-between items-center mt-4"><span className="font-bold text-gray-200">Efectivo Real en Mano</span><input type="number" value={cashParams.efectivoReal === 0 ? '' : cashParams.efectivoReal} onChange={(e) => updateCashParam('efectivoReal', e.target.value)} className="w-32 text-right bg-[#151722] text-white border-2 border-[#2D314A] rounded-lg px-3 py-2 outline-none font-bold text-lg shadow-inner" /></div>
+                                        <div className={`p-4 rounded-xl flex items-center justify-between font-bold border shadow-inner ${cashDifference >= 0 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-red-500/10 border-red-500/30 text-red-400'}`}>
+                                            <span className="flex items-center gap-2"><Icon name={cashDifference >= 0 ? "TrendingUp" : "TrendingDown"} size={20} />{cashDifference >= 0 ? 'Sobra en Caja' : 'Falta en Caja'}</span>
+                                            <span className="text-xl">{formatMoney(Math.abs(cashDifference))}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-[#1A1C26] rounded-2xl shadow-lg border border-[#2D314A] p-6 text-white relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 p-4 opacity-5"><Icon name="DollarSign" size={100} /></div>
+                                    <h2 className="text-lg font-medium text-cyan-400 mb-6 relative z-10">Resumen Financiero Diario</h2>
+                                    <div className="space-y-4 relative z-10">
+                                        <div className="flex justify-between items-center"><span className="text-gray-400">Total Dinero (Esperado)</span><span className="font-medium">{formatMoney(expectedCashTotal)}</span></div>
+                                        <div className="flex justify-between items-center text-pink-400"><span>- Total Gastado</span><span className="font-medium">{formatMoney(totalExpenses)}</span></div>
+                                        <div className="flex justify-between items-center text-gray-400"><span>- Pagos Extra (Sueldos)</span><input type="number" value={cashParams.pagosExtra === 0 ? '' : cashParams.pagosExtra} onChange={(e) => updateCashParam('pagosExtra', e.target.value)} className="w-24 text-right bg-[#151722] border border-[#2D314A] rounded px-2 py-1 outline-none text-white shadow-inner" /></div>
+                                        <div className={`flex justify-between items-center ${cashDifference >= 0 ? 'text-emerald-400' : 'text-red-400'}`}><span>{cashDifference >= 0 ? '+ Sobra de Caja' : '- Falta de Caja'}</span><span className="font-medium">{formatMoney(Math.abs(cashDifference))}</span></div>
+                                        <div className="pt-4 border-t border-[#2D314A] mt-4"><div className="flex justify-between items-end"><span className="text-white font-bold text-lg">GANANCIA NETA</span><span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">{formatMoney(netProfit)}</span></div></div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-[#202336] rounded-2xl shadow-lg border border-[#2D314A] flex flex-col h-[650px]">
+                                    <div className="p-5 border-b border-[#2D314A] flex justify-between items-center bg-[#151722]/50">
+                                        <h2 className="text-lg font-bold flex items-center gap-2 text-white"><Icon name="Calculator" className="text-pink-500" size={20} /> Gastos del Día</h2>
+                                        <div className="font-black text-pink-400 bg-pink-500/10 border border-pink-500/20 px-3 py-1 rounded-lg">{formatMoney(totalExpenses)}</div>
+                                    </div>
+                                    <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                                        <div>
+                                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Gastos Automáticos</h3>
+                                            <div className="bg-[#151722] rounded-xl border border-[#2D314A] overflow-hidden">
+                                                <table className="w-full text-sm text-left">
+                                                    <thead className="bg-[#202336] text-gray-400 text-xs border-b border-[#2D314A]"><tr><th className="py-2 px-3">Insumo</th><th className="py-2 px-3 text-center">Cant.</th><th className="py-2 px-3 text-right">Precio Unit.</th><th className="py-2 px-3 text-right">Total</th></tr></thead>
+                                                    <tbody className="divide-y divide-[#2D314A]">
+                                                        {computedAutoExpenses.map(exp => (
+                                                            <tr key={exp.id}>
+                                                                <td className="py-2 px-3 text-gray-300">{exp.name}</td>
+                                                                <td className="py-2 px-3 text-center text-gray-500">{exp.quantity % 1 === 0 ? exp.quantity : exp.quantity.toFixed(2)}</td>
+                                                                <td className="py-2 px-3 text-right"><input type="number" value={exp.unitPrice} onChange={(e) => updateAutoExpensePrice(exp.id, e.target.value)} className="w-16 text-right bg-[#202336] border border-[#2D314A] text-white rounded px-1 py-0.5 outline-none" /></td>
+                                                                <td className="py-2 px-3 text-right font-bold text-pink-400">{formatMoney(exp.total)}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Gastos Manuales y Fijos</h3>
+                                            <div className="space-y-2">
+                                                {manualExpenses.map((expense) => (
+                                                    <div key={expense.id} className="flex gap-2 items-center group">
+                                                        <input type="text" value={expense.name} onChange={(e) => updateManualExpense(expense.id, 'name', e.target.value)} className="flex-1 bg-[#151722] text-gray-200 border border-[#2D314A] rounded-lg px-3 py-2 outline-none text-sm" />
+                                                        {expense.isVariable ? (
+                                                            <div className="flex items-center gap-2">
+                                                                <input type="number" value={expense.qty === 0 ? '' : expense.qty} onChange={(e) => updateManualExpense(expense.id, 'qty', e.target.value)} className="w-16 text-center bg-[#151722] text-white border border-[#2D314A] rounded-lg px-2 py-2 outline-none text-sm" placeholder="Cant." />
+                                                                <span className="text-gray-500 text-xs">x Bs.{expense.unitPrice}</span>
+                                                                <div className="w-20 text-right text-pink-400 font-bold text-sm px-1 py-2">{expense.amount > 0 ? formatMoney(expense.amount) : 'Bs. 0,00'}</div>
+                                                            </div>
+                                                        ) : (
+                                                            <input type="number" value={expense.amount === 0 ? '' : expense.amount} onChange={(e) => updateManualExpense(expense.id, 'amount', e.target.value)} className="w-24 text-right bg-[#151722] text-white border border-[#2D314A] rounded-lg px-3 py-2 outline-none text-sm font-medium" placeholder="Bs." />
+                                                        )}
+                                                        <button onClick={() => removeManualExpense(expense.id)} className="p-2 text-gray-600 hover:text-red-400"><Icon name="Trash2" size={16} /></button>
+                                                    </div>
+                                                ))}
+                                                <button onClick={addManualExpense} className="w-full mt-2 flex items-center justify-center gap-2 text-sm text-gray-400 border-2 border-dashed border-[#2D314A] rounded-xl p-3 hover:text-cyan-400 font-medium">
+                                                    <Icon name="Plus" size={18} /> Añadir Gasto Manual
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
